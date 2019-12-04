@@ -8,9 +8,12 @@ import {
   GoogleMapsEvent,
   MyLocationOptions,
   MyLocation,
-  GoogleMapsAnimation
+  GoogleMapsAnimation,
+  Marker,
+  Geocoder
 } from '@ionic-native/google-maps';
 import { dismiss } from '@ionic/core/dist/types/utils/overlays';
+import { Routes } from '@angular/router';
 declare var google: any;
 
 
@@ -27,6 +30,9 @@ export class HomePage implements OnInit {
   public search: string = '';
   private googleAutocomplete = new google.maps.places.AutocompleteService();
   public searchResults = new Array<any>();
+  private originMarker: Marker;
+  public destination: any;
+  private googleDirectionsService = new google.maps.DirectionsService();
 
 
   constructor(private platform: Platform,
@@ -78,7 +84,7 @@ export class HomePage implements OnInit {
         target: myLocation.latLng,
         zoom: 18
       })
-      this.map.addMarkerSync({
+      this.originMarker = this.map.addMarkerSync({
         Title: 'Aqui Estoy',
         icon: '#800080',
         animation: GoogleMapsAnimation.DROP,
@@ -103,10 +109,33 @@ export class HomePage implements OnInit {
     });
   }
 
-  calcRoute(item: any) {
+  async calcRoute(item: any) {
     this.search = '';
-    console.log(item);
+    this.destination = item;
+
+    const info: any = await Geocoder.geocode({ address: this.destination.description });
+
+    let markerDestination: Marker = this.map.addMarkerSync({
+      title: this.destination.description,
+      icon: '#000',
+      animation: GoogleMapsAnimation.DROP,
+      position: info[0].position
+    });
+
+    this.googleDirectionsService.route({
+      origin: this.originMarker.getPosition(),
+      destination: markerDestination.getPosition(),
+      travelMode: 'DRIVING'
+    }, results => {
+      console.log(results);
+
+    });
+
+    this.map.addPolyline({
+      points: [this.originMarker.getPosition(), markerDestination.getPosition()],
+      color: '#000',
+      width: 3
+
+    });
   }
-
-
 }
