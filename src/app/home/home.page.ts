@@ -1,16 +1,17 @@
-import { Component, OnInit, ViewChild, NgZone } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, NgZone } from '@angular/core';
 import { Platform, LoadingController } from '@ionic/angular';
 import {
   GoogleMaps,
   GoogleMap,
-  Environment,
-  GoogleMapOptions,
   GoogleMapsEvent,
-  MyLocationOptions,
-  MyLocation,
-  GoogleMapsAnimation,
+  GoogleMapOptions,
+  CameraPosition,
+  MarkerOptions,
   Marker,
-  Geocoder
+  Environment,
+  GoogleMapsAnimation,
+  Geocoder,
+  ILatLng
 } from '@ionic-native/google-maps';
 import { dismiss } from '@ionic/core/dist/types/utils/overlays';
 import { Routes } from '@angular/router';
@@ -26,11 +27,11 @@ export class HomePage implements OnInit {
   // @ViewChild('map', { static: false }) mapElement: any;
   @ViewChild('map', { static: true }) mapElement: any;
   private loading: any;
-  private map: GoogleMap;
-  public search: string = '';
+  map: GoogleMap;
+  search: string = '';
   private googleAutocomplete = new google.maps.places.AutocompleteService();
   public searchResults = new Array<any>();
-  private originMarker: Marker;
+  public originMarket: Marker;
   public destination: any;
   private googleDirectionsService = new google.maps.DirectionsService();
 
@@ -52,7 +53,9 @@ export class HomePage implements OnInit {
 
   }
   async loadMap() {
-    this.loading = await this.loadingCtrl.create({ message: 'Espere...' });
+    this.loading = await this.loadingCtrl.create({
+      message: 'Espere...'
+    });
     await this.loading.present();
 
 
@@ -61,7 +64,7 @@ export class HomePage implements OnInit {
       'API_KEY_FOR_BROWSER_DEBUG': 'AIzaSyBjQABSVm5-I00LBgQ42KKlQo9vGJgH5XA'
     });
 
-    const mapOptions: GoogleMapOptions = {
+    let mapOptions: GoogleMapOptions = {
       controls: {
         zoom: false
       }
@@ -72,29 +75,28 @@ export class HomePage implements OnInit {
     try {
       await this.map.one(GoogleMapsEvent.MAP_READY);
       this.addOriginMarker();
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) { }
   }
 
   async addOriginMarker() {
     try {
-      const myLocation: MyLocation = await this.map.getMyLocation();
+      const myLocation: any = await this.map.getMyLocation();
       this.map.moveCamera({
         target: myLocation.latLng,
         zoom: 18
-      })
-      this.originMarker = this.map.addMarkerSync({
+      });
+
+      this.originMarket = this.map.addMarkerSync({
         Title: 'Aqui Estoy',
         icon: '#800080',
         animation: GoogleMapsAnimation.DROP,
         position: myLocation.latLng
-
       });
       // tslint:disable-next-line: align
     } catch (error) {
       console.error(error);
     } finally {
+      // cuando teermine de cargar el mapa cierre el loading
       this.loading.dismiss();
     }
   }
@@ -109,13 +111,13 @@ export class HomePage implements OnInit {
     });
   }
 
-  async calcRoute(item: any) {
+  async calcRoute(result: any) {
     this.search = '';
-    this.destination = item;
+    this.destination = result;
 
     const info: any = await Geocoder.geocode({ address: this.destination.description });
 
-    let markerDestination: Marker = this.map.addMarkerSync({
+    let marketDestination: Marker = this.map.addMarkerSync({
       title: this.destination.description,
       icon: '#000',
       animation: GoogleMapsAnimation.DROP,
@@ -123,19 +125,25 @@ export class HomePage implements OnInit {
     });
 
     this.googleDirectionsService.route({
-      origin: this.originMarker.getPosition(),
-      destination: markerDestination.getPosition(),
+      origin: this.originMarket.getPosition(),
+      destination: marketDestination.getPosition(),
       travelMode: 'DRIVING'
-    }, results => {
-      console.log(results);
+    }, async results => {
+      const points = new Array<ILatLng>();
+      const routes = results.routes[0].overview_path;
 
-    });
-
-    this.map.addPolyline({
-      points: [this.originMarker.getPosition(), markerDestination.getPosition()],
-      color: '#000',
-      width: 3
-
+      for (let i = 0; i < routes.lenght; i++) {
+        points[i] = {
+          lat: routes[i].lat(),
+          lng: routes[i].lng()
+        }
+      }
+      await this.map.addPolylineSync({
+        points: points,
+        color: '#000',
+        width: 3,
+      })
+      this.map.moveCamera({ target: points })
     });
   }
 }
